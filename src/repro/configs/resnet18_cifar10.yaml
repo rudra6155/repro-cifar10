@@ -1,0 +1,54 @@
+# ResNet-18 (CIFAR variant) on CIFAR-10.
+# Recipe = kuangliu/pytorch-cifar main.py (the source of the commonly cited ResNet-18 number).
+# Every intentional deviation from that recipe is marked "DEVIATION" and discussed in FINDINGS.md.
+
+name: resnet18_cifar10
+
+reference:
+  source: "kuangliu/pytorch-cifar README"
+  url: "https://github.com/kuangliu/pytorch-cifar"
+  top1: 93.02                 # the number that README reports for ResNet18
+  commonly_cited: [94.0, 95.0]
+
+data:
+  root: data
+  # True per-channel train-set statistics (verified by tests/test_data_shapes.py when the data is
+  # present). DEVIATION: the reference uses std (0.2023, 0.1994, 0.2010), which is not the
+  # dataset's per-pixel std.
+  mean: [0.4914, 0.4822, 0.4465]
+  std: [0.2470, 0.2435, 0.2616]
+  random_crop_padding: 4
+  hflip: true
+  train_subset: null          # null = full 50k
+  test_subset: null           # null = full 10k
+
+model:
+  arch: resnet18              # 3x3 stride-1 stem, no maxpool, BasicBlock [2, 2, 2, 2]
+  num_classes: 10
+
+optim:
+  lr: 0.1
+  momentum: 0.9
+  weight_decay: 5.0e-4        # on all parameters, including BN and biases (as in the reference)
+  nesterov: false
+
+schedule:
+  name: cosine                # CosineAnnealingLR, T_max = train.epochs, stepped once per epoch
+  min_lr: 0.0
+
+train:
+  epochs: 200
+  batch_size: 128             # last batch of each epoch is partial (50000 = 390*128 + 80), as in the reference
+  eval_batch_size: 1000
+  # DEVIATION: bf16 autocast on CUDA for speed (reference is fp32). CPU always runs fp32.
+  precision: bf16
+  channels_last: true
+  deterministic: true         # cudnn.deterministic, no benchmark, torch deterministic algorithms
+  checkpoint_every: 10        # epochs between resumable checkpoints (RESUME=1 make repro)
+
+# Overrides applied by `--smoke` (make smoke). Sanity check only, not a result.
+smoke:
+  epochs: 2
+  train_subset: 10000
+  test_subset: 2000
+  min_top1: 20.0
