@@ -1,0 +1,52 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test-and-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install (CPU torch)
+        run: make install TORCH_INDEX=https://download.pytorch.org/whl/cpu
+
+      - name: Cache CIFAR-10
+        uses: actions/cache@v4
+        with:
+          path: data
+          key: cifar10-python-v1
+
+      - name: make test
+        run: make test
+
+      - name: make smoke
+        run: make smoke
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-results
+          path: |
+            results/smoke/*.csv
+            results/smoke/*.json
+            results/smoke/*.log
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: make docker
+        run: make docker
+      - name: Unit tests inside the image
+        run: docker run --rm repro-cifar10 make test
