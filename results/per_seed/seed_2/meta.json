@@ -1,0 +1,74 @@
+{
+  "seed": 2,
+  "started_utc": "2026-10-29T16:48:38+00:00",
+  "finished_utc": "2026-10-29T17:40:10+00:00",
+  "train_wall_time_s": 3088.0,
+  "n_params": 11173962,
+  "environment": {
+    "python": "3.13.5",
+    "torch": "2.14.1+cu126",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "device": "cuda",
+    "cuda": "12.6",
+    "cudnn": 91002,
+    "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU"
+  },
+  "config": {
+    "name": "resnet18_cifar10",
+    "reference": {
+      "source": "kuangliu/pytorch-cifar README",
+      "url": "https://github.com/kuangliu/pytorch-cifar",
+      "top1": 93.02,
+      "commonly_cited": [
+        94.0,
+        95.0
+      ]
+    },
+    "data": {
+      "root": "data",
+      "mean": [
+        0.4914,
+        0.4822,
+        0.4465
+      ],
+      "std": [
+        0.247,
+        0.2435,
+        0.2616
+      ],
+      "random_crop_padding": 4,
+      "hflip": true,
+      "train_subset": null,
+      "test_subset": null
+    },
+    "model": {
+      "arch": "resnet18",
+      "num_classes": 10
+    },
+    "optim": {
+      "lr": 0.1,
+      "momentum": 0.9,
+      "weight_decay": 0.0005,
+      "nesterov": false
+    },
+    "schedule": {
+      "name": "cosine",
+      "min_lr": 0.0
+    },
+    "train": {
+      "epochs": 200,
+      "batch_size": 128,
+      "eval_batch_size": 1000,
+      "precision": "bf16",
+      "channels_last": true,
+      "deterministic": true,
+      "checkpoint_every": 10
+    },
+    "smoke": {
+      "epochs": 2,
+      "train_subset": 10000,
+      "test_subset": 2000,
+      "min_top1": 20.0
+    }
+  }
+}
