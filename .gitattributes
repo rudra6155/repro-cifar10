@@ -1,0 +1,5 @@
+# Keep LF in the repo and working tree everywhere (bash scripts and the Makefile break on CRLF in Linux/Docker).
+* text=auto eol=lf
+*.png binary
+*.pt binary
+*.gz binary
