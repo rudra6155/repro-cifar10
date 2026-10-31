@@ -1,17 +1,17 @@
 # repro-cifar10
 
-An honest, 3-seed, end-to-end reproduction of ResNet-18 on CIFAR-10, compared against the
-commonly cited ~93–95% top-1. **Results, variance, and what didn't match: [FINDINGS.md](FINDINGS.md).**
+A 3-seed, end-to-end reproduction of ResNet-18 on CIFAR-10, compared against the
+commonly cited ~93–95% top-1. Results, variance, and what didn't match are in [FINDINGS.md](FINDINGS.md).
 
 ## What this is / is NOT
 
 **This is**
 - A from-scratch ResNet-18 (CIFAR variant: 3x3 stride-1 stem, no max-pool) trained with the
   standard recipe (SGD 0.1 / momentum 0.9 / wd 5e-4, cosine, 200 epochs, batch 128,
-  crop + flip), over **3 seeds**, reported as mean ± std of the **final-epoch** test accuracy.
+  crop + flip), over 3 seeds, reported as mean ± std of the final-epoch test accuracy.
 - Seeded and deterministic (cuDNN deterministic kernels; a test checks bit-identical loss across
   two runs).
-- A pipeline where the FINDINGS results table is **generated** from `results/aggregate.csv`,
+- A pipeline where the FINDINGS results table is generated from `results/aggregate.csv`,
   never typed by hand (a test enforces this).
 
 **This is NOT**
@@ -34,7 +34,7 @@ Also: `make smoke` (2 epochs on a 10k subset, asserts top-1 > 20%; sanity only),
 without retraining), and `RESUME=1 make repro` (continue after an interruption; checkpoints
 every 10 epochs).
 
-On Windows, run `make` from **Git Bash** (the recipes use bash). CIFAR-10 (~170 MB) is
+On Windows, run `make` from Git Bash (the recipes use bash). CIFAR-10 (~170 MB) is
 downloaded to `data/` on first use.
 
 ## Hardware and compute (generated from `results/aggregate.csv`)
@@ -69,12 +69,12 @@ hyperparameter.
 
 ## Known limitations
 
-- **3 seeds is a small sample.** The 95% CI on the mean (in FINDINGS) is wide because the t
+- 3 seeds is a small sample. The 95% CI on the mean (in FINDINGS) is wide because the t
   critical value at df=2 is 4.3.
-- **bf16 autocast** is used for training speed. The reference trains in fp32. Not ablated (see
+- bf16 autocast is used for training speed. The reference trains in fp32. Not ablated (see
   FINDINGS).
-- **No separate validation split.** We report the final epoch, fixed in advance, so the test set
+- No separate validation split. We report the final epoch, fixed in advance, so the test set
   is not used for selection. The per-epoch test curve is still shown.
-- **Single machine, single GPU type.** cuDNN determinism holds per machine/driver/library
+- Single machine, single GPU type. cuDNN determinism holds per machine/driver/library
   version. A different GPU will give slightly different (equally valid) numbers.
 - Model checkpoints (`*.pt`) and the dataset are not committed.
