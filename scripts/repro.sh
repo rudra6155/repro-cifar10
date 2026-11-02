@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Full reproduction: train + eval every seed, then aggregate, plot, and regenerate FINDINGS.md.
+# Full reproduction: train + eval every seed, then aggregate, plot, and print the tables.
 #   SEEDS="0 1 2" (default)   RESUME=1 keeps finished seeds and resumes an interrupted one.
 set -euo pipefail
 source "$(dirname "$0")/_env.sh"
@@ -16,6 +16,6 @@ for seed in $SEEDS; do
   echo "== seed $seed: eval (from saved checkpoint)"
   bash scripts/eval.sh "$seed"
 done
-echo "== aggregate + plots + FINDINGS table"
-"$PY" -m repro.report --results results --findings FINDINGS.md --readme README.md
+echo "== aggregate + plots + tables"
+"$PY" -m repro.report --results results
 echo "== repro finished in $(( ($(date +%s) - t0) / 60 )) min"

@@ -19,14 +19,14 @@ SEEDS  ?= 0 1 2
 
 export PY CONFIG SEEDS
 
-.PHONY: help install test smoke repro report check-findings docker docker-test clean
+.PHONY: help install test smoke repro report docker docker-test clean
 
 help:
 	@echo "make install   create .venv and install torch + package"
 	@echo "make test      unit tests (CPU, < 60 s)"
 	@echo "make smoke     2 epochs on a subset, asserts top-1 > 20%"
-	@echo "make repro     3 seeds x 200 epochs -> results/ -> FINDINGS table"
-	@echo "make report    re-aggregate results/ and regenerate plots + FINDINGS table"
+	@echo "make repro     3 seeds x 200 epochs -> results/ -> aggregate, plots, printed tables"
+	@echo "make report    re-aggregate results/, redraw the plots, print the tables"
 	@echo "make docker    build the Docker image ($(IMAGE))"
 
 install:
@@ -45,10 +45,7 @@ repro:
 	bash scripts/repro.sh
 
 report:
-	$(PY) -m repro.report --results results --findings FINDINGS.md --readme README.md
-
-check-findings:
-	$(PY) -m repro.report --results results --findings FINDINGS.md --readme README.md --check
+	$(PY) -m repro.report --results results
 
 docker:
 	docker build -t $(IMAGE) .

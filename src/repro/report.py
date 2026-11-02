@@ -1,11 +1,10 @@
-"""Aggregate per-seed results, draw the plots, and regenerate the numbers in FINDINGS.md / README.md.
+"""Aggregate per-seed results, draw the plots, and print the results tables.
 
-    python -m repro.report --results results --findings FINDINGS.md --readme README.md [--check]
+    python -m repro.report --results results
 
-Pipeline: results/per_seed/seed_*/{eval.json,train_log.csv,meta.json} -> results/aggregate.csv
--> generated blocks in the markdown files. The markdown blocks are rendered **only** from
-aggregate.csv, never from the per-seed files directly, so the CSV is the single source of
-truth. ``--check`` re-renders and exits 1 if the committed markdown has drifted from the CSV.
+results/per_seed/seed_*/{eval.json,train_log.csv,meta.json} -> results/aggregate.csv and the
+two plots. The tables are printed to stdout, rendered from aggregate.csv only. Nothing in the
+markdown files is touched; paste the tables in by hand.
 """
 
 from __future__ import annotations
@@ -14,7 +13,6 @@ import argparse
 import csv
 import json
 import math
-import re
 import statistics
 import sys
 from datetime import datetime
@@ -131,7 +129,7 @@ def render_results(agg_path: Path) -> str:
     seeds, mean, std = _load_aggregate(agg_path)
     n = len(seeds)
     lines = [
-        "| Run | Top-1 (%) | Top-5 (%) | Test loss | Best-epoch top-1 (%) ¹ | Final train acc (%) ² | Train time (h) |",
+        "| Run | Top-1 (%) | Top-5 (%) | Test loss | Best-epoch top-1 (%) | Final train acc (%) | Train time (h) |",
         "|---|---|---|---|---|---|---|",
     ]
     for s in seeds:
@@ -141,7 +139,7 @@ def render_results(agg_path: Path) -> str:
             f"{float(s['final_train_acc']):.2f} | {float(s['train_wall_time_h']):.2f} |"
         )
     lines.append(
-        f"| **mean ± std (n={n})** | **{_pm(mean, std, 'top1')}** | {_pm(mean, std, 'top5')} | "
+        f"| mean ± std (n={n}) | **{_pm(mean, std, 'top1')}** | {_pm(mean, std, 'top5')} | "
         f"{_pm(mean, std, 'test_loss', 4)} | {_pm(mean, std, 'best_top1')} | "
         f"{_pm(mean, std, 'final_train_acc')} | {_pm(mean, std, 'train_wall_time_h')} |"
     )
@@ -152,9 +150,9 @@ def render_results(agg_path: Path) -> str:
     lo, hi = COMMONLY_CITED
     band = "inside" if lo <= m <= hi else ("above" if m > hi else "below")
     bullets = [
-        f"- Reference (kuangliu/pytorch-cifar README, ResNet18): **{REFERENCE_TOP1:.2f}%**. "
-        f"Δ (our mean − reference) = **{delta:+.2f} pp**.",
-        f"- Commonly cited band {lo:.0f}–{hi:.0f}%: our mean is **{band}** it "
+        f"- Reference (kuangliu/pytorch-cifar README, ResNet18): {REFERENCE_TOP1:.2f}%. "
+        f"Difference (our mean minus reference): {delta:+.2f} pp.",
+        f"- Commonly cited band {lo:.0f}-{hi:.0f}%: our mean is {band} it "
         f"({m - hi:+.2f} pp vs the top of the band).",
     ]
     if n > 1:
@@ -163,12 +161,12 @@ def render_results(agg_path: Path) -> str:
         half = t * sd / math.sqrt(n)
         bullets.append(
             f"- 95% CI for the mean (Student t, df={n - 1}): [{m - half:.2f}, {m + half:.2f}]. "
-            f"Seed range (max − min): {max(top1s) - min(top1s):.2f} pp."
+            f"Seed range (max - min): {max(top1s) - min(top1s):.2f} pp."
         )
         n_above = sum(v > REFERENCE_TOP1 for v in top1s)
         ref_in_ci = m - half <= REFERENCE_TOP1 <= m + half
         bullets.append(
-            f"- **Verdict:** {n_above}/{n} seeds beat the reference. The reference "
+            f"- {n_above}/{n} seeds beat the reference. The reference "
             f"{'lies inside' if ref_in_ci else 'lies outside'} our 95% CI, so the gap "
             f"{'could be' if ref_in_ci else 'is not'} explained by seed noise. Worst seed vs reference: "
             f"{min(top1s) - REFERENCE_TOP1:+.2f} pp."
@@ -176,15 +174,17 @@ def render_results(agg_path: Path) -> str:
     peek = float(mean["best_top1"]) - m
     bullets.append(
         f"- Picking the best epoch on the test set (what the reference script checkpoints) would add "
-        f"**{peek:+.2f} pp** on average. We do not use it as the headline."
+        f"{peek:+.2f} pp on average. It is not used as the headline."
     )
     if n < 3:
-        bullets.append(f"- ⚠️ Only {n} seed(s) present. This is NOT a valid 3-seed reproduction.")
+        bullets.append(f"- Only {n} seed(s) present, so this is not a full 3-seed run.")
     notes = [
         "",
-        f"¹ Max over the {seeds[0]['epochs']} per-epoch test evaluations: an optimistic, test-set-selected number, "
-        "shown only for comparison with the reference script's `best_acc`.",
-        "² Mean batch accuracy over the last epoch, on augmented training data in train mode.",
+        f"Best-epoch top-1 is the max over the {seeds[0]['epochs']} per-epoch test evaluations. It is "
+        "selected on the test set, so it is optimistic, and it is here only to compare with the "
+        "reference script's `best_acc`.",
+        "Final train acc is the mean batch accuracy over the last epoch, on augmented training data "
+        "in train mode.",
     ]
     return "\n".join(lines + [""] + bullets + notes)
 
@@ -205,35 +205,10 @@ def render_compute(agg_path: Path) -> str:
     torches = sorted({s["torch"] for s in seeds})
     return "\n".join([
         f"- Hardware: {', '.join(gpus)} (1 GPU, runs executed sequentially); PyTorch {', '.join(torches)}",
-        f"- Total GPU-hours (sum of training time over {len(seeds)} seeds): **{gpu_hours:.2f}**",
-        f"- Wall-clock, first seed start to last seed end: **{wall.total_seconds() / 3600:.2f} h**",
+        f"- Total GPU-hours (sum of training time over {len(seeds)} seeds): {gpu_hours:.2f}",
+        f"- Wall-clock, first seed start to last seed end: {wall.total_seconds() / 3600:.2f} h",
         f"- Per seed: {_pm(mean, std, 'train_wall_time_h')} h for {seeds[0]['epochs']} epochs",
     ])
-
-
-def replace_block(text: str, name: str, body: str) -> str:
-    pattern = re.compile(
-        rf"(<!-- BEGIN GENERATED:{name} [^>]*-->).*?(<!-- END GENERATED:{name} -->)", re.S
-    )
-    if not pattern.search(text):
-        raise ValueError(f"marker block GENERATED:{name} not found")
-    return pattern.sub(lambda mt: f"{mt.group(1)}\n{body}\n{mt.group(2)}", text)
-
-
-def render_docs(agg_path: Path, findings: Path | None, readme: Path | None) -> dict[Path, str]:
-    blocks = {
-        "results": render_results(agg_path),
-        "per_class": render_per_class(agg_path),
-        "compute": render_compute(agg_path),
-    }
-    out = {}
-    for path in (p for p in (findings, readme) if p is not None):
-        text = path.read_text(encoding="utf-8")
-        for name, body in blocks.items():
-            if f"GENERATED:{name} " in text:
-                text = replace_block(text, name, body)
-        out[path] = text
-    return out
 
 
 # --------------------------------------------------------------------------- plots
@@ -341,21 +316,8 @@ def plot_confusion(dirs: list[Path], out: Path) -> None:
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--results", type=Path, default=Path("results"))
-    p.add_argument("--findings", type=Path, default=Path("FINDINGS.md"))
-    p.add_argument("--readme", type=Path, default=Path("README.md"))
-    p.add_argument("--check", action="store_true",
-                   help="do not write anything; exit 1 if the markdown differs from aggregate.csv")
     args = p.parse_args(argv)
     agg = args.results / "aggregate.csv"
-
-    if args.check:
-        stale = [str(path) for path, text in render_docs(agg, args.findings, args.readme).items()
-                 if path.read_text(encoding="utf-8") != text]
-        if stale:
-            print(f"OUT OF SYNC with {agg}: {', '.join(stale)}. Run `make report`.")
-            return 1
-        print(f"markdown in sync with {agg}")
-        return 0
 
     dirs = seed_dirs(args.results)
     if not dirs:
@@ -364,10 +326,11 @@ def main(argv: list[str] | None = None) -> int:
     write_aggregate([summarize_seed(d) for d in dirs], agg)
     plot_curves(dirs, args.results / "accuracy_curve.png")
     plot_confusion(dirs, args.results / "confusion.png")
-    for path, text in render_docs(agg, args.findings, args.readme).items():
-        path.write_text(text, encoding="utf-8", newline="\n")
-    print(f"wrote {agg}, plots, and regenerated tables in {args.findings} / {args.readme} "
-          f"({len(dirs)} seeds)")
+    print(f"wrote {agg} and the plots ({len(dirs)} seeds)\n")
+    for title, body in (("results", render_results(agg)),
+                        ("per-class accuracy", render_per_class(agg)),
+                        ("compute", render_compute(agg))):
+        print(f"[{title}]\n{body}\n")
     return 0
 
 
