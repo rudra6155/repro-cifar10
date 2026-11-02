@@ -1,4 +1,4 @@
-"""Guard the published recipe: the config must say what SPEC.md / FINDINGS.md say, and the LR schedule
+"""Guard the published recipe: the config must say what FINDINGS.md says, and the LR schedule
 must equal PyTorch's CosineAnnealingLR as used by the reference script."""
 
 from pathlib import Path
