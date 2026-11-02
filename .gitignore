@@ -6,6 +6,3 @@ data/
 *.pt
 results/smoke/
 results/**/*.log
-.claude/
-.cursor/
-.gemini/
